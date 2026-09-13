@@ -165,7 +165,14 @@ def clean_and_transform_data(df_raw):
         )
         .withColumn("gross_amount", spark_round(col("unit_price") * col("quantity"), 2))
         .withColumn("discount_amount", spark_round(col("gross_amount") * col("discount_percent"), 2))
-        .withColumn("net_revenue", spark_round(col("gross_amount") - col("discount_amount"), 2))
+        .withColumn(
+            "net_revenue",
+            when(
+                col("order_status") == "COMPLETED",
+                spark_round(col("gross_amount") - col("discount_amount"), 2)
+            ).otherwise(0.0)
+        )
+        .withColumn("is_successful_sale", col("order_status") == "COMPLETED")
         .withColumn("order_date", to_date(col("order_timestamp")))
         .withColumn("order_month", date_format(col("order_timestamp"), "yyyy-MM"))
         .withColumn("order_hour", hour(col("order_timestamp")))
@@ -178,9 +185,9 @@ def clean_and_transform_data(df_raw):
     print(f" Cleaned data contains {valid_count} valid records ({dropped} corrupt/invalid rows dropped).")
     print("\n--- Sample Cleaned Records with Derived Financials ---")
     df_transformed.select(
-        "order_id", "customer_name", "category", "product_name", 
-        "unit_price", "quantity", "gross_amount", "net_revenue", "order_month"
-    ).show(5, truncate=False)
+        "order_id", "customer_name", "order_status", "unit_price", 
+        "quantity", "gross_amount", "net_revenue", "is_successful_sale"
+    ).show(6, truncate=False)
     
     return df_transformed
 
